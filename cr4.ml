@@ -63,6 +63,13 @@ module StringSet : SET =
 
 module type INT_QUEUE =
     sig
+      type queue
+      (* why do we use exception here? *)
+      exception EmptyQueue
+      val empty_queue : queue
+      val enqueue : int -> queue -> queue 
+      val dequeue : queue -> (int * queue)
+
       (* queue      - The data type of our queue
       EmptyQueue    - a custom exception
       empty_queue   - a default “empty queue” constant
@@ -74,9 +81,16 @@ module type INT_QUEUE =
 module IntQueue : INT_QUEUE =
     struct 
       (* Implement the above structure! *)
+      type queue = int list
+      exception EmptyQueue
+      let empty_queue = []
+      let enqueue (el : int) (q : queue) = 
+        q @ [el]
+      let dequeue (q : queue) = 
+        match q with
+        | [] -> raise EmptyQueue
+        | hd :: tl -> hd, tl
     end;;
-
-
 
 
 (* A set contains multiple elements, but cannot contain any duplicates! *)
@@ -98,7 +112,7 @@ module type POLYMORPHIC_SET =
     val member: 'a -> 'a set -> bool
   end;;
 
-(* Implementation of POLYMORPHIC_SET as a list*)
+(* Implementation of POLYMORPHIC_SET as a list *)
 module PolymorphicSet : POLYMORPHIC_SET =
   struct
     type 'a set = 'a list
@@ -121,7 +135,7 @@ module PolymorphicSet : POLYMORPHIC_SET =
       | hd :: tl -> let tlint = intersection tl set2 in
       if member hd set2 then add hd tlint
       else tlint
-  end ;;
+  end ;; 
 
 
 
@@ -186,6 +200,7 @@ module MakeSpecificSet (Params : SPECIFIC_SET_PARAMTERS)
 module MyModule (Input : SPECIFIC_SET_PARAMTERS) : SPECIFIC_SET =
   MakeSpecificSet(Input) ;;
 
+
 module SampleInput : SPECIFIC_SET_PARAMTERS =
   struct
     type t = int
@@ -210,7 +225,7 @@ module type RESTRICTED_QUEUE_PARAMETERS =
     type t
     val max_elements: int
     val is_allowed: t -> bool 
-  end
+  end ;;
 
   (* 
     t - the type of the element in the queue
@@ -218,11 +233,16 @@ module type RESTRICTED_QUEUE_PARAMETERS =
     is_allowed - takes in an element and returns whether or not it's allowed to be added to the queue
   *)
 
-module RestrictedQueueParams = 
-  struct
-    (* Parameters that will generate a queue module that takes in integers, allows up to 10 values,
+      (* Parameters that will generate a queue module that takes in integers, allows up to 10 values,
         and only allows integers that are positive  *)
-  end
+
+(* Need to specify type t in the signature of module when using it as functors *)
+module RestrictedQueueParams : (RESTRICTED_QUEUE_PARAMETERS with type t = int) = 
+  struct
+    type t = int
+    let max_elements : int = 10
+    let is_allowed = fun x -> x > 0
+  end ;;
 
 module type RESTRICTED_QUEUE =
   sig
@@ -230,15 +250,28 @@ module type RESTRICTED_QUEUE =
     type queue
     exception EmptyQueue
     val empty_queue : queue
-    val enqueue : element -> queue -> queue
+    val enqueue : queue -> element -> queue
     val dequeue : queue -> element * queue
-  end
+  end ;;
 
-(* module CreateRestrictedQueue (Params: RESTRICTED_QUEUE_PARAMETERS) 
+module CreateRestrictedQueue (Params: RESTRICTED_QUEUE_PARAMETERS) 
                             : (RESTRICTED_QUEUE with type element = Params.t) =
   struct 
     (* Implement the above structure! *)
-  end;; *)
+    type element = Params.t
+    type queue = element list
+    exception EmptyQueue 
+    let empty_queue = [] 
+    let enqueue (q: queue) (el: element) = q @ [el]
+    let dequeue (q: queue) = 
+      match q with
+      | [] -> raise EmptyQueue
+      | hd :: tl -> hd, tl
+  end;;
 
 (* Time to put it all together! Create a module called MyRestrictedQueue that passes RestrictedQueueParams
     as an argument to CreateRestrictedQueue *)
+(* module MyRestrictedQueue (Params: RESTRICTED_QUEUE_PARAMETERS) : RESTRICTED_QUEUE = 
+  CreateRestrictedQueue(Params) ;; *)
+
+module MyRestrictedQueue = CreateRestrictedQueue(RestrictedQueueParams) ;;
